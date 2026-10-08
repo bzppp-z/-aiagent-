@@ -11,7 +11,7 @@ client = OpenAI(
 
 resp = client.chat.completions.create(
     model="deepseek-chat",
-    messages=[{"role": "user", "content": "用一句话证明你是一个大模型"}],
+    messages=[{"role": "user", "content": "今天是星期几?"}],
 )
 
 print("回答：", resp.choices[0].message.content)
