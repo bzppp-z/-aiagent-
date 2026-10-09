@@ -13,3 +13,7 @@ chroma_db/
 **/chroma_db/
 *.npy
 *.csv
+
+# 个人学习笔记（代码讲解 HTML）—— 不进项目仓库
+*教学.html
+解析*.html
