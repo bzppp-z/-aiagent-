@@ -42,6 +42,7 @@ python core/rag_db.py                           # 入 ChromaDB（集合 kb_ta_st
 # 问答（在线）
 python core/rag.py "第六周的学习内容是什么？"
 python core/rag.py                              # 默认验收三问
+python core/rag_chat.py --live                  # 多轮会话（v0.3）
 ```
 
 ## 语料
@@ -59,7 +60,7 @@ python core/rag.py                              # 默认验收三问
 |---|---|---|
 | v0.1 | 地基迁移 + 多源语料入库 + CLI 问答带引用/拒答 | 🚧 进行中 |
 | v0.2 | 混合宽召回 top-20 + Rerank 精排 | ⏳ |
-| v0.3 | 多轮对话 + 查询改写 | ⏳ |
+| v0.3 | 多轮对话 + 查询改写（`rag_chat.py`，指代消解） | ✅ 2026-11-14 |
 | v0.4 | **评测闭环**：评测集 + Recall@5 + LLM 裁判 | ⏳ |
 | v0.5 | FastAPI 工作台 + SSE 流式 + 压测 | ⏳ |
 | v0.6 | Agent 化：查进度工具 + ReAct 循环 | ⏳ |
