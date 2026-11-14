@@ -1,20 +1,23 @@
-"""Day 12: 最小 RAG —— 提问 → 检索 → 拼 Prompt → 带引用生成
+"""v0.1+v0.2: RAG 问答 —— 混合宽召回 → Rerank 精排 → 拼 Prompt → 带引用生成
 
-链路位置: 文档 → 切片 → 向量化 → 入库/检索 → [今天: 拼 Prompt + 生成] ✅ 全链路闭环
-用法: python rag.py
-本周验收: 回答基本正确、带 [n] 引用；问语料外的问题应拒答（对抗幻觉）。
+链路位置: 文档 → 切片 → 向量化 → 入库 → [混合召回 top-20 → Rerank 精排 top-K] → 生成
+用法: python rag.py "问题1" ... ｜ RAG_K=3 python rag.py ...（K = 精排后进 Context 的片数）
+v0.2 验收: 精排后相关小节进 Top-1；RAG_K=3 时输入 Token 明显低于纯向量 K=5 的基线。
 """
 import os
-os.environ.setdefault("HF_HUB_OFFLINE", "1")            # bge 已缓存，跳过联网校验
+os.environ.setdefault("HF_HUB_OFFLINE", "1")            # bge/reranker 已缓存，跳过联网校验
 os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")  # 关 chromadb 匿名上报
 
 import chromadb
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer, CrossEncoder
 from chat import chat      # Day 2 的地基: 超时/重试/Token 统计，chat() 内部自己 load .env
+from retrieval import HybridRetriever   # Day 18: 向量+BM25 双路 + RRF 融合
 
 MODEL_NAME = "BAAI/bge-small-zh-v1.5"   # 离线编码必须和入库用同一个模型
-COLLECTION = os.environ.get("RAG_KB", "kb_ta_struct")   # 查哪个集合（新旧切片版可切换）
-K = 5                                    # 每次检索取 Top-5 片段
+RERANKER = "BAAI/bge-reranker-base"     # v0.2 精排裁判（Cross-Encoder）
+COLLECTION = os.environ.get("RAG_KB", "kb_ta_struct")   # 查哪个集合
+POOL = 20                               # 宽召回池子大小（精排的原料）
+K = int(os.environ.get("RAG_K", "5"))   # 精排后进 Context 的片数（可调小省 Token）
 
 
 def get_collection():
@@ -39,6 +42,27 @@ def retrieve(question, model, k=K):
     sources = res["metadatas"][0]
     texts = res["documents"][0]
     return [(m["source"], t) for m, t in zip(sources, texts)]
+
+
+def retrieve_reranked(question, model, cross, hr, pool=POOL, k=K):
+    """v0.2 检索主链路: 混合宽召回 → Rerank 精排。
+
+    pool=20 粗筛（快而糙，两路互补兜底）→ Cross-Encoder 给 20 对 (问题, 片) 精细打分
+    （慢而准，量少所以可接受）→ 取前 k 片。
+    Rerank 分数是原始 logit，只有相对大小有意义——比排序别比绝对值。
+    """
+    fused = hr.rrf_fuse(
+        hr.vector_search(question, pool),
+        hr.bm25_search(question, pool),
+        k=pool,
+    )                                                  # [(片序号, rrf分)]
+    pairs = [(question, hr.texts[idx]) for idx, _ in fused]
+    scores = cross.predict(pairs)
+    ranked = sorted(
+        [(idx, float(s)) for (idx, _), s in zip(fused, scores)],
+        key=lambda x: -x[1],
+    )[:k]
+    return [(hr.sources[idx], hr.texts[idx]) for idx, _ in ranked], fused
 
 
 def build_messages(question, hits):
@@ -78,7 +102,10 @@ def build_messages(question, hits):
 
 if __name__ == "__main__":
     import sys
-    model = SentenceTransformer(MODEL_NAME)   # 模型只加载一次
+    model = SentenceTransformer(MODEL_NAME)   # 编码器只加载一次
+    cross = CrossEncoder(RERANKER, max_length=512)  # 精排裁判只加载一次
+    hr = HybridRetriever(model)               # 双路检索器（含 BM25 索引）
+    print(f"[配置] 宽召回 {POOL} → 精排取 {K} 片 (RAG_K 可调)")
 
     # 命令行传了问题就测命令行的: python rag.py "问题1" "问题2"
     # 没传就用默认验收三连
@@ -91,7 +118,7 @@ if __name__ == "__main__":
     for q in questions:
         print(f"\n{'=' * 60}\n【问题】{q}\n{'-' * 60}")
 
-        hits = retrieve(q, model)             # ① 检索
+        hits, fused = retrieve_reranked(q, model, cross, hr)  # ① 宽召回+精排
         msgs = build_messages(q, hits)        # ② 拼 Prompt
         result = chat(msgs, temperature=0.1)  # ③ 生成（低温: 事实问答求稳）
 
@@ -100,4 +127,4 @@ if __name__ == "__main__":
         print(f"Token: 输入 {result['usage']['in']} / 输出 {result['usage']['out']}")
         # 引用来源 = 本题命中的片段来源去重（即使拒答，资料也照常检索了）
         cited = sorted({s for s, _ in hits})
-        print(f"本次检索命中的来源: {', '.join(cited)}")
+        print(f"精排后命中来源 ({len(hits)}/{len(fused)} 片): {', '.join(cited)}")
