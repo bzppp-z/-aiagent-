@@ -1,0 +1,43 @@
+{
+  "note": "知识库语料源清单。sources 里的路径相对项目根目录；dirs 取目录下全部 .md/.txt，files 取单个文件。第三方内容（llm-master）只登记路径、不入 git 仓库。",
+  "sources": {
+    "dirs": [
+      "corpus"
+    ],
+    "files": [
+      "../../llm-master/docs/llm/app/why_rag.md",
+      "../../llm-master/docs/llm/app/chain_of_rag.md",
+      "../../llm-master/docs/llm/app/how_to_chunking.md",
+      "../../llm-master/docs/llm/app/embedding.md",
+      "../../llm-master/docs/llm/app/vector_database.md",
+      "../../llm-master/docs/llm/app/rag_problems.md",
+      "../../llm-master/docs/llm/app/rag_optimization.md",
+      "../../llm-master/docs/llm/app/long_document_code_retrieval.md",
+      "../../llm-master/docs/llm/app/rag_evaluation.md",
+      "../../llm-master/docs/llm/app/model_integration.md",
+      "../../llm-master/docs/llm/app/token_cost_latency.md",
+      "../../llm-master/docs/llm/app/prompt_engineering.md",
+      "../../llm-master/docs/llm/app/prompt_fewshot_cot_reflection.md",
+      "../../llm-master/docs/llm/app/structured_output.md",
+      "../../llm-master/docs/llm/app/streaming_output.md",
+      "../../llm-master/docs/llm/app/function_calling.md",
+      "../../llm-master/docs/llm/app/context_engineering.md",
+      "../../llm-master/docs/llm/app/deployment_options.md",
+      "../../llm-master/docs/llm/app/stress_testing.md",
+      "../../llm-master/docs/llm/app/agent_intro.md",
+      "../../llm-master/docs/llm/app/agent_vs_workflow.md",
+      "../../llm-master/docs/llm/app/agent_tool_design.md",
+      "../../llm-master/docs/llm/app/react_reflection_planning.md",
+      "../../llm-master/docs/llm/app/agent_memory.md",
+      "../../llm-master/docs/llm/app/agent_failure_modes.md",
+      "../../llm-master/docs/llm/app/mcp_protocol.md",
+      "../../llm-master/docs/llm/intro/app_dev_overview.md",
+      "../../llm-master/docs/llm/intro/application_development.md",
+      "../../llm-master/docs/llm/intro/how_llm_trained.md",
+      "../../llm-master/docs/llm/intro/llm_keywords.md",
+      "../../llm-master/docs/llm/intro/llm_learning_roadmap.md",
+      "../../llm-master/docs/llm/intro/llm_pricing.md",
+      "../../llm-master/docs/llm/intro/why_hello_costs_tokens.md"
+    ]
+  }
+}

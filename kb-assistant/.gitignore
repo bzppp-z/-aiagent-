@@ -1,0 +1,15 @@
+# ==== 永远不入库 ====
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# ==== 生成物（可随时重跑重建）====
+index/
+chroma_db/
+*.npy
+
+# ==== 个人笔记类（讲解 HTML 只留本地）====
+*讲解.html
+*教学.html

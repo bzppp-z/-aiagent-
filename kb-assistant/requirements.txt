@@ -1,0 +1,7 @@
+openai>=1.0
+python-dotenv
+chromadb
+sentence-transformers
+numpy
+rank_bm25
+jieba
