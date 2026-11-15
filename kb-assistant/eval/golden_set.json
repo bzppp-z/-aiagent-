@@ -1,7 +1,7 @@
 {
   "version": "0.1-draft",
   "created": "2026-11-15",
-  "note": "评测集初稿（Day 22-23）。答案由 AI 从语料起草，answer_verified=false 的条目未经学员校对，正式评测前必须逐条把关。source=期望命中的文档（Recall@5 判定依据，按文档名匹配 Top-5）；语料外题 source=[] 且 answer 固定为「应拒答」。 | 2026-11-15 元数据过滤实施（方案B）：bad_cases.md 打 kind=log，默认检索排除——对话生成的资料不能影响 RAG；仅依赖其内容的 3 条（F013,F014,R004）移除（查修复历史属工作台 where kind=log 功能）。",
+  "note": "评测集初稿（Day 22-23）。答案由 AI 从语料起草，answer_verified=false 的条目未经学员校对，正式评测前必须逐条把关。source=期望命中的文档（Recall@5 判定依据，按文档名匹配 Top-5）；语料外题 source=[] 且 answer 固定为「应拒答」。 | 2026-11-15 元数据过滤实施（方案B）：bad_cases.md 打 kind=log，默认检索排除——对话生成的资料不能影响 RAG；仅依赖其内容的 3 条（F013,F014,R004）移除（查修复历史属工作台 where kind=log 功能）。 | 2026-11-15 校对完成：5 条 false 条目（F009/F010/F020/R005/X008）已逐条对照原文核实并修订（F009 由外推改为原文口径，R005 重写为公式+放大项），全部 answer_verified=true，评测集生效。",
   "counts": {
     "fact": 17,
     "reasoning": 7,
@@ -96,25 +96,25 @@
       "id": "F009",
       "type": "fact",
       "question": "为什么不能用 MySQL 做向量检索？",
-      "answer": "待校对：向量是几百个浮点数，MySQL 无法对其建高效索引，相似度计算要逐行全表扫描（O(N)），大数据量下延迟不可接受；向量库用 ANN 索引（近似最近邻）在速度和精度间取平衡。",
+      "answer": "向量搜索问的是「哪些向量和查询向量最接近」——高维连续空间的几何问题；MySQL 的 B-Tree/Hash 索引为精确匹配/范围扫描设计，对高维几何相似度完全无效，逐条计算相似度也无法高效索引，大规模下即便 pgvector 这类扩展性能仍远不如专门向量数据库。向量库靠 ANN（近似最近邻）索引在速度和精度间取得平衡。",
       "source": [
         "vector_database.md"
       ],
       "source_hint": "## 二、为什么不能用 MySQL",
-      "answer_verified": false,
-      "origin": "draft"
+      "answer_verified": true,
+      "origin": "draft（2026-11-15 已对照原文核对）"
     },
     {
       "id": "F010",
       "type": "fact",
       "question": "什么是大模型的幻觉？",
-      "answer": "待校对：模型不知道答案时，生成「听起来最合理」的内容且语气坚定——一本正经地编造事实。",
+      "answer": "模型编造不存在的东西且语气特别自信——问它不存在的人，它能编出完整履历。幻觉不是 Bug，是工作方式的副产物：模型本质在预测「下一个最可能出现的 Token」，而不是在「检索事实」。",
       "source": [
         "llm_keywords.md",
         "why_rag.md"
       ],
-      "answer_verified": false,
-      "origin": "draft"
+      "answer_verified": true,
+      "origin": "draft（2026-11-15 已对照原文核对）"
     },
     {
       "id": "F011",
@@ -204,12 +204,12 @@
       "id": "F020",
       "type": "fact",
       "question": "什么是 Function Calling？",
-      "answer": "待校对：让模型按约定格式「点名」要调用的函数（输出结构化的工具名+参数），应用执行后把结果回传，是 AI 从「会说」到「会做」的关键。",
+      "answer": "Tool/Function 本质是一段预先定义好的代码逻辑，大模型本身并不执行它，而是按约定格式告诉应用程序该执行哪段代码（输出工具名+参数），应用执行后把结果回传。Function Calling 即调用外部函数，是 Agent 的前置能力。",
       "source": [
         "function_calling.md"
       ],
-      "answer_verified": false,
-      "origin": "draft"
+      "answer_verified": true,
+      "origin": "draft（2026-11-15 已对照原文核对）"
     },
     {
       "id": "R001",
@@ -252,13 +252,13 @@
       "id": "R005",
       "type": "reasoning",
       "question": "大模型 API 的成本和什么有关？",
-      "answer": "待校对：按 Token 计费（输入+输出分开算），上下文长度影响价格；RAG 场景的成本大头是检索内容注入（Context 拼进 Prompt 的部分），可用缓存降低重复问题的费用。",
+      "answer": "单请求成本 = 输入 Token×输入单价 + 输出 Token×输出单价 + 其他费用（Token 数以 Tokenizer 为准，不是字数）。生产环境账单会被放大项撑大：失败重试、多步 Agent 链路、RAG/Embedding/Rerank 的独立成本、审核评测、无效输出（用户中途取消仍计费）。日成本 = 日请求量 × 单请求平均调用次数 × 单次平均成本。",
       "source": [
         "token_cost_latency.md",
         "llm_pricing.md"
       ],
-      "answer_verified": false,
-      "origin": "draft"
+      "answer_verified": true,
+      "origin": "draft（2026-11-15 已对照原文核对）"
     },
     {
       "id": "R006",
@@ -367,8 +367,8 @@
       "source": [
         "mcp_protocol.md"
       ],
-      "answer_verified": false,
-      "origin": "draft"
+      "answer_verified": true,
+      "origin": "draft（2026-11-15 已核对：mcp_protocol 七个章节均为协议介绍，无实现教程，边界答案成立）"
     }
   ]
 }
