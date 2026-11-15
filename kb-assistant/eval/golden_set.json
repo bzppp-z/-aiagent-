@@ -1,11 +1,11 @@
 {
   "version": "0.1-draft",
   "created": "2026-11-15",
-  "note": "评测集初稿（Day 22-23）。答案由 AI 从语料起草，answer_verified=false 的条目未经学员校对，正式评测前必须逐条把关。source=期望命中的文档（Recall@5 判定依据，按文档名匹配 Top-5）；语料外题 source=[] 且 answer 固定为「应拒答」。 | 2026-11-15 元数据过滤实施（方案B）：bad_cases.md 打 kind=log，默认检索排除——对话生成的资料不能影响 RAG；仅依赖其内容的 3 条（F013,F014,R004）移除（查修复历史属工作台 where kind=log 功能）。 | 2026-11-15 校对完成：5 条 false 条目（F009/F010/F020/R005/X008）已逐条对照原文核实并修订（F009 由外推改为原文口径，R005 重写为公式+放大项），全部 answer_verified=true，评测集生效。",
+  "note": "评测集初稿（Day 22-23）。答案由 AI 从语料起草，answer_verified=false 的条目未经学员校对，正式评测前必须逐条把关。source=期望命中的文档（Recall@5 判定依据，按文档名匹配 Top-5）；语料外题 source=[] 且 answer 固定为「应拒答」。 | 2026-11-15 元数据过滤实施（方案B）：bad_cases.md 打 kind=log，默认检索排除——对话生成的资料不能影响 RAG；仅依赖其内容的 3 条（F013,F014,R004）移除（查修复历史属工作台 where kind=log 功能）。 | 2026-11-15 校对完成：5 条 false 条目（F009/F010/F020/R005/X008）已逐条对照原文核实并修订（F009 由外推改为原文口径，R005 重写为公式+放大项），全部 answer_verified=true，评测集生效。 | 2026-11-15 X004 平反：语料扩容使其成为可答事实题（裁判首轮误判编造，实为语料原文），评测集跟着语料走的又一实例。",
   "counts": {
-    "fact": 17,
+    "fact": 18,
     "reasoning": 7,
-    "outside": 8
+    "outside": 7
   },
   "cases": [
     {
@@ -325,12 +325,16 @@
     },
     {
       "id": "X004",
-      "type": "outside",
+      "type": "fact",
       "question": "bge-small-zh-v1.5 是谁发布的？",
-      "answer": "应拒答（语料提 BGE 但无发布方信息）",
-      "source": [],
+      "answer": "BAAI（模型全名 BAAI/bge-small-zh-v1.5 即以此署名；RESOURCES 里写作「BGE 模型（BAAI）」）。",
+      "source": [
+        "NOTES.md",
+        "RESOURCES.md",
+        "学习计划-RAG主线.md"
+      ],
       "answer_verified": true,
-      "origin": "Day15实测"
+      "origin": "Day15实测（2026-11-15 平反：语料扩容后 NOTES/RESOURCES/学习计划均提及 BAAI，原「应拒答」标注过时；模型实测回答正确）"
     },
     {
       "id": "X005",
