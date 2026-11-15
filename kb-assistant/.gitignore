@@ -13,3 +13,6 @@ chroma_db/
 # ==== 个人笔记类（讲解 HTML 只留本地）====
 *讲解.html
 *教学.html
+
+# 评测报告（可再生成）
+eval/results/
