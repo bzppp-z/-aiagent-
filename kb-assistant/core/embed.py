@@ -41,6 +41,8 @@ def load_chunks(output_dir, chunk_size=None):
             continue
         with open(os.path.join(output_dir, name), encoding="utf-8") as f:
             data = json.load(f)
+        if not isinstance(data, dict) or "chunks" not in data:
+            continue  # 跳过目录里的历史产物（meta.json 等）——别吃自己的输出
         if chunk_size is not None and data["chunk_size"] != chunk_size:
             continue
         for piece in data["chunks"]:
