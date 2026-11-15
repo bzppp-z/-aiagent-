@@ -1,0 +1,407 @@
+{
+  "version": "0.1-draft",
+  "created": "2026-11-15",
+  "note": "评测集初稿（Day 22-23）。答案由 AI 从语料起草，answer_verified=false 的条目未经学员校对，正式评测前必须逐条把关。source=期望命中的文档（Recall@5 判定依据，按文档名匹配 Top-5）；语料外题 source=[] 且 answer 固定为「应拒答」。",
+  "counts": {
+    "fact": 19,
+    "reasoning": 8,
+    "outside": 8
+  },
+  "cases": [
+    {
+      "id": "F001",
+      "type": "fact",
+      "question": "切片大小一般设多少合适？",
+      "answer": "无通用最优值。常用参考范围：对话型问答 256~512 token；知识库检索 512~1024 token；长文档摘要可到 1500~2000 token。均为估计，需按业务效果调整。",
+      "source": [
+        "how_to_chunking.md"
+      ],
+      "source_hint": "## 五、实际项目里怎么选策略（chunk 大小经验值）",
+      "answer_verified": true,
+      "origin": "bad_cases/BC-1"
+    },
+    {
+      "id": "F002",
+      "type": "fact",
+      "question": "切片时 overlap 的作用是什么？",
+      "answer": "防止重要信息落在 chunk 边界被割裂：相邻 chunk 保留一段重叠内容（如 chunk 512 token、overlap 64 token），保证边界附近的信息在两侧都能被完整检索到。",
+      "source": [
+        "how_to_chunking.md"
+      ],
+      "source_hint": "## 三、Overlap",
+      "answer_verified": true,
+      "origin": "bad_cases/BC-2"
+    },
+    {
+      "id": "F003",
+      "type": "fact",
+      "question": "Embedding 模型怎么选？",
+      "answer": "四个维度：①语言场景——中文优先 BGE/M3E 等中文优化模型；②最大 token 限制——直接约束 chunk 上限（bge-small-zh 512 token）；③向量维度——越高表达越细但存储/速度开销大；④任务类型——非对称检索（短问长文）要选专门优化的模型。",
+      "source": [
+        "embedding.md"
+      ],
+      "source_hint": "## 三、Embedding 模型怎么选",
+      "answer_verified": true,
+      "origin": "draft"
+    },
+    {
+      "id": "F004",
+      "type": "fact",
+      "question": "bge-small-zh 的输入长度上限是多少？",
+      "answer": "最多 512 token，超过会被截断，因此 chunk 不能超过这个限制。",
+      "source": [
+        "embedding.md"
+      ],
+      "source_hint": "选型四维度 / 最大 token 限制",
+      "answer_verified": true,
+      "origin": "draft"
+    },
+    {
+      "id": "F006",
+      "type": "fact",
+      "question": "RAG 解决了大模型的哪些局限？",
+      "answer": "四个内生局限：幻觉（不知道时硬编）、私有知识盲区（公司文档没见过）、时效性滞后（训练数据落后现实）、不可追溯（说不出内容出处）。RAG 对应解法：检索原文作上下文、知识库自建自维、更新文档即更新知识、答案可附引用。",
+      "source": [
+        "why_rag.md"
+      ],
+      "source_hint": "大模型的四个内生局限",
+      "answer_verified": true,
+      "origin": "draft"
+    },
+    {
+      "id": "F007",
+      "type": "fact",
+      "question": "RAG 离线阶段有哪几步？",
+      "answer": "五步：①文档加载；②清洗预处理（去页眉页脚乱码）；③切片 Chunking；④Embedding 向量化+元数据；⑤存入向量数据库。",
+      "source": [
+        "chain_of_rag.md"
+      ],
+      "source_hint": "RAG 完整链路总览",
+      "answer_verified": true,
+      "origin": "draft"
+    },
+    {
+      "id": "F008",
+      "type": "fact",
+      "question": "RAG 在线阶段有哪几步？",
+      "answer": "五步：①Query 处理（改写/扩展，可选）；②Query 向量化→检索 top-K（3~10）；③可选混合检索/Rerank 精排；④上下文构建（拼 Prompt）；⑤LLM 生成带引用的回答。",
+      "source": [
+        "chain_of_rag.md"
+      ],
+      "source_hint": "RAG 完整链路总览",
+      "answer_verified": true,
+      "origin": "draft"
+    },
+    {
+      "id": "F009",
+      "type": "fact",
+      "question": "为什么不能用 MySQL 做向量检索？",
+      "answer": "待校对：向量是几百个浮点数，MySQL 无法对其建高效索引，相似度计算要逐行全表扫描（O(N)），大数据量下延迟不可接受；向量库用 ANN 索引（近似最近邻）在速度和精度间取平衡。",
+      "source": [
+        "vector_database.md"
+      ],
+      "source_hint": "## 二、为什么不能用 MySQL",
+      "answer_verified": false,
+      "origin": "draft"
+    },
+    {
+      "id": "F010",
+      "type": "fact",
+      "question": "什么是大模型的幻觉？",
+      "answer": "待校对：模型不知道答案时，生成「听起来最合理」的内容且语气坚定——一本正经地编造事实。",
+      "source": [
+        "llm_keywords.md",
+        "why_rag.md"
+      ],
+      "answer_verified": false,
+      "origin": "draft"
+    },
+    {
+      "id": "F011",
+      "type": "fact",
+      "question": "第六周的学习内容是什么？",
+      "answer": "选修的 Agent 进阶：把知识库升级成「会自己动手的助手」。文章：agent_intro / agent_vs_workflow / agent_tool_design / react_reflection_planning / agent_memory（选读）/ agent_failure_modes（选读）/ mcp_protocol（选读）；项目二选一（知识库加 Agent 能力 or 极简工具型 Agent）。",
+      "source": [
+        "学习计划-RAG主线.md",
+        "NOTES.md"
+      ],
+      "answer_verified": true,
+      "origin": "v0.1验收"
+    },
+    {
+      "id": "F012",
+      "type": "fact",
+      "question": "第 3 周每天的任务是什么？",
+      "answer": "Day 15 给 Bad Case 分类；Day 16-17 改进切片策略并对比旧版；Day 18 加混合检索（BM25+向量）；Day 19 加 Rerank；Day 20 加查询改写与多轮对话；Day 21 周复盘。",
+      "source": [
+        "学习计划-RAG主线.md"
+      ],
+      "answer_verified": true,
+      "origin": "draft"
+    },
+    {
+      "id": "F013",
+      "type": "fact",
+      "question": "BC-1 的病因是什么？",
+      "answer": "检索侧问题：①文档头部 title/tags 元信息块混进切片，占 Top-5 两席；②固定长度切分把「chunk 太大的论述」和「经验值段」焊在同一片，向量语义被前半部分主导——经验值段全库实测排第 12 名（0.442）。",
+      "source": [
+        "bad_cases.md"
+      ],
+      "answer_verified": true,
+      "origin": "bad_cases/BC-1"
+    },
+    {
+      "id": "F014",
+      "type": "fact",
+      "question": "BC-2 是怎么修复的？",
+      "answer": "生成侧问题（过度保守拒答）。修复：system 新增规则 4——资料已给出原理/数据时应据此推断作答，不要因没有逐字答案而拒答；并用红烧肉问题做回归验证拒答边界未失效。",
+      "source": [
+        "bad_cases.md"
+      ],
+      "answer_verified": true,
+      "origin": "bad_cases/BC-2"
+    },
+    {
+      "id": "F015",
+      "type": "fact",
+      "question": "什么文档适合用结构感知切分？",
+      "answer": "有明确层级结构的文档：Markdown 标题、法律条款编号、代码函数边界。按结构切每片天然对应一个主题，检索精准度往往最高。",
+      "source": [
+        "how_to_chunking.md"
+      ],
+      "source_hint": "策略四：结构感知切分",
+      "answer_verified": true,
+      "origin": "draft"
+    },
+    {
+      "id": "F016",
+      "type": "fact",
+      "question": "什么是递归字符切分？",
+      "answer": "按分隔符优先级递归切：先按 \\n\\n，太大按 \\n，再大按句号，直到每个 chunk 都在目标大小以内。相比固定长度切分尽量在语义边界断开，是无结构普通文本的默认选择。",
+      "source": [
+        "how_to_chunking.md"
+      ],
+      "source_hint": "策略二：递归字符切分",
+      "answer_verified": true,
+      "origin": "draft"
+    },
+    {
+      "id": "F017",
+      "type": "fact",
+      "question": "Embedding 和 Rerank 有什么区别？",
+      "answer": "Embedding（Bi-Encoder 双塔）：Query 和文档分别编码算相似度，可预计算、毫秒级全库召回，但看不到两者交互，是粗筛；Rerank（Cross-Encoder）：Query 和候选文档拼接后联合输入模型直接输出相关性分数，能看到深度交互、精准度更高，但无法预计算、只能对少量候选（top-20 以内）精排。两者是流水线：先粗筛再精排。",
+      "source": [
+        "embedding.md"
+      ],
+      "source_hint": "## 四、Embedding 和 Rerank 有什么区别",
+      "answer_verified": true,
+      "origin": "v0.3验收"
+    },
+    {
+      "id": "F018",
+      "type": "fact",
+      "question": "混合检索为什么需要关键词兜底？",
+      "answer": "向量检索对精确词（数字、术语、专有名词）不敏感且语义模糊；BM25 认字不懂义但对精确词极敏感。实测：精确词查询 BM25 第 1 名而向量排第 3；同义改写查询向量第 1 名而 BM25 前 5 无一命中——两路互补，RRF 按名次融合。",
+      "source": [
+        "rag_optimization.md",
+        "bad_cases.md"
+      ],
+      "source_hint": "## 三、检索侧优化：混合检索",
+      "answer_verified": true,
+      "origin": "Day18实测"
+    },
+    {
+      "id": "F019",
+      "type": "fact",
+      "question": "什么是 Query 改写？",
+      "answer": "检索之前先用 LLM 对用户问题做处理：扩展同义词、修正表述、补全隐含条件，让改写后的查询贴近知识库文档的用词习惯。如「这个合同能退吗」改写为「合同解除条款、退款政策、合同撤销条件」多个角度检索，覆盖率更好。",
+      "source": [
+        "rag_optimization.md"
+      ],
+      "source_hint": "## 二、Query 改写",
+      "answer_verified": true,
+      "origin": "draft"
+    },
+    {
+      "id": "F020",
+      "type": "fact",
+      "question": "什么是 Function Calling？",
+      "answer": "待校对：让模型按约定格式「点名」要调用的函数（输出结构化的工具名+参数），应用执行后把结果回传，是 AI 从「会说」到「会做」的关键。",
+      "source": [
+        "function_calling.md"
+      ],
+      "answer_verified": false,
+      "origin": "draft"
+    },
+    {
+      "id": "R001",
+      "type": "reasoning",
+      "question": "为什么离线和在线阶段必须用同一个 Embedding 模型？",
+      "answer": "不同模型把文本映射到不同的向量空间（维度都不同），空间之间的距离没有意义。离线建库的切片向量和在线查询向量必须在同一空间，余弦相似度才有效；换模型等于全库作废重编码。",
+      "source": [
+        "embedding.md",
+        "chain_of_rag.md"
+      ],
+      "answer_verified": true,
+      "origin": "draft"
+    },
+    {
+      "id": "R002",
+      "type": "reasoning",
+      "question": "chunk 太大和太小各有什么害处？",
+      "answer": "太小：语义不完整（检索回来一句「是的，符合规范」——符合什么规范？），可能把论述拦腰切断；太大：信噪比低、无关内容挤占上下文窗口、向量「平均化」语义模糊，检索精准度下降。",
+      "source": [
+        "how_to_chunking.md"
+      ],
+      "source_hint": "## 四、Chunk 过大、过小各有什么问题",
+      "answer_verified": true,
+      "origin": "draft"
+    },
+    {
+      "id": "R003",
+      "type": "reasoning",
+      "question": "为什么说 Rerank 治排序不治召回？",
+      "answer": "Rerank 只能给「已经捞进候选池的片段」重新打分排序，捞不上来的它变不出来。所以 Recall@K 低（相关内容根本没被召回）时加 Rerank 无意义，应先修召回（切片/混合检索/Query 改写）；召回了但排不准才是 Rerank 的主场。生产上用「宽召回 top-50 + Rerank 精选 top-5」组合拳。",
+      "source": [
+        "rag_optimization.md",
+        "bad_cases.md"
+      ],
+      "source_hint": "## 四、Rerank 判断标准",
+      "answer_verified": true,
+      "origin": "bad_cases/BC-1"
+    },
+    {
+      "id": "R004",
+      "type": "reasoning",
+      "question": "项目里第 3 周修复了哪些 Bad Case？分别怎么修的？",
+      "answer": "BC-1（检索没召回）：剥元信息块+按标题结构切分，经验值段排名 12→1，Top-5 噪声 40%→0；BC-2（过度保守拒答）：Prompt 加规则 4 允许据资料原理一步推断，红烧肉回归仍正确拒答。BC-3（新旧记录并存漏答）已立册待 v0.4 评测量化。",
+      "source": [
+        "bad_cases.md"
+      ],
+      "answer_verified": true,
+      "origin": "bad_cases"
+    },
+    {
+      "id": "R005",
+      "type": "reasoning",
+      "question": "大模型 API 的成本和什么有关？",
+      "answer": "待校对：按 Token 计费（输入+输出分开算），上下文长度影响价格；RAG 场景的成本大头是检索内容注入（Context 拼进 Prompt 的部分），可用缓存降低重复问题的费用。",
+      "source": [
+        "token_cost_latency.md",
+        "llm_pricing.md"
+      ],
+      "answer_verified": false,
+      "origin": "draft"
+    },
+    {
+      "id": "R006",
+      "type": "reasoning",
+      "question": "语料里「overlap 设为 64 token」的例子说明了什么机制？",
+      "answer": "chunk 大小 512、overlap 64 时，chunk 2 的前 64 个 token 和 chunk 1 的后 64 个 token 完全相同——相邻片共享重叠区，边界处的信息在两侧都有备份，无论检索命中哪一片都能拿到完整上下文。",
+      "source": [
+        "how_to_chunking.md"
+      ],
+      "source_hint": "## 三、Overlap",
+      "answer_verified": true,
+      "origin": "draft"
+    },
+    {
+      "id": "R007",
+      "type": "reasoning",
+      "question": "怎么对抗大模型的幻觉？",
+      "answer": "RAG 只能缓解不能消除：①检索原文作上下文，要求「根据资料回答」；②答案带引用可溯源、可核查；③给「不知道」留出口（拒答规则），资料不足时明确说没有；④用评测集持续验证。多手段组合把幻觉大幅降低但不归零。",
+      "source": [
+        "why_rag.md",
+        "bad_cases.md"
+      ],
+      "answer_verified": true,
+      "origin": "draft"
+    },
+    {
+      "id": "R008",
+      "type": "reasoning",
+      "question": "什么情况下不应该急着加 Rerank？",
+      "answer": "Recall@K 本身很低、相关内容根本没被召回时——此时加 Rerank 没有意义（它变不出候选），应该先解决召回问题（清洗、切片策略、混合检索、Query 改写）。判据：召回了但排不准 → 上 Rerank；没召回 → 先修召回。",
+      "source": [
+        "rag_optimization.md"
+      ],
+      "source_hint": "## 四、Rerank 什么时候不急着加",
+      "answer_verified": true,
+      "origin": "draft"
+    },
+    {
+      "id": "X001",
+      "type": "outside",
+      "question": "怎么煮红烧肉？",
+      "answer": "应拒答",
+      "source": [],
+      "answer_verified": true,
+      "origin": "v0.1回归"
+    },
+    {
+      "id": "X002",
+      "type": "outside",
+      "question": "今天天气怎么样？",
+      "answer": "应拒答",
+      "source": [],
+      "answer_verified": true,
+      "origin": "draft"
+    },
+    {
+      "id": "X003",
+      "type": "outside",
+      "question": "RAG 和微调应该怎么选？",
+      "answer": "应拒答（已核实语料 0 次提及微调选型）",
+      "source": [],
+      "answer_verified": true,
+      "origin": "Day15实测"
+    },
+    {
+      "id": "X004",
+      "type": "outside",
+      "question": "bge-small-zh-v1.5 是谁发布的？",
+      "answer": "应拒答（语料提 BGE 但无发布方信息）",
+      "source": [],
+      "answer_verified": true,
+      "origin": "Day15实测"
+    },
+    {
+      "id": "X005",
+      "type": "outside",
+      "question": "Transformer 的注意力机制数学公式怎么推导？",
+      "answer": "应拒答（Transformer 专题不在语料）",
+      "source": [],
+      "answer_verified": true,
+      "origin": "draft"
+    },
+    {
+      "id": "X006",
+      "type": "outside",
+      "question": "Python 的 GIL 是什么？",
+      "answer": "应拒答（Python 语言知识不在语料）",
+      "source": [],
+      "answer_verified": true,
+      "origin": "draft"
+    },
+    {
+      "id": "X007",
+      "type": "outside",
+      "question": "帮我写一首关于秋天的诗",
+      "answer": "应拒答（创作类请求，非知识问答；助教只答课程内容）",
+      "source": [],
+      "answer_verified": true,
+      "origin": "draft"
+    },
+    {
+      "id": "X008",
+      "type": "outside",
+      "question": "MCP 协议的服务端怎么自己实现一个？",
+      "answer": "待校对：语料有 mcp_protocol.md（讲协议认知），若其不含「自己实现服务端」的步骤，则应答「资料只有协议介绍，没有实现教程」。注意：MCP 本身已是语料内话题，此题考的是「话题沾边但具体问题超出语料深度」的边界。",
+      "source": [
+        "mcp_protocol.md"
+      ],
+      "answer_verified": false,
+      "origin": "draft"
+    }
+  ]
+}
