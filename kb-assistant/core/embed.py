@@ -46,7 +46,7 @@ def load_chunks(output_dir, chunk_size=None):
         if chunk_size is not None and data["chunk_size"] != chunk_size:
             continue
         for piece in data["chunks"]:
-            chunks.append({"source": data["source"], "text": piece["text"]})
+            chunks.append({"source": data["source"], "kind": data.get("kind", "course"), "text": piece["text"]})
     return chunks
 
 

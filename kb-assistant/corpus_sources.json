@@ -39,5 +39,9 @@
       "../../llm-master/docs/llm/intro/llm_pricing.md",
       "../../llm-master/docs/llm/intro/why_hello_costs_tokens.md"
     ]
+  },
+  "kinds": {
+    "bad_cases.md": "log",
+    "_note": "kind=course 默认（课程知识）；kind=log（学员日记/台账）默认不参与检索——对话生成的资料不能影响 RAG。查历史用 where kind=log（工作台功能）。"
   }
 }

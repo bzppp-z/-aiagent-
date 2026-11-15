@@ -44,6 +44,7 @@ class HybridRetriever:
         self.meta = meta
         self.texts = [m["text"] for m in meta]
         self.sources = [m["source"] for m in meta]
+        self.kinds = [m.get("kind", "course") for m in meta]
         tokenized = [tokenize(t) for t in self.texts]      # 每片切成词列表
         self.bm25 = BM25Okapi(tokenized)                   # 建 BM25 索引（纯内存，秒级）
 
@@ -58,7 +59,9 @@ class HybridRetriever:
     def vector_search(self, question, k=5):
         """语义检索。返回 [(片序号, 相似度), ...] 按相似度降序。"""
         q_vec = self.model.encode([question])[0].tolist()
-        res = self.collection.query(query_embeddings=[q_vec], n_results=k)
+        # 元数据过滤: 日记类文档不参与检索——对话生成的资料不能影响 RAG
+        res = self.collection.query(query_embeddings=[q_vec], n_results=k,
+                                    where={"kind": {"$ne": "log"}})
         hits = []
         for id_, d in zip(res["ids"][0], res["distances"][0]):
             idx = int(id_.split("_")[1])       # id 形如 chunk_17 → 序号 17
@@ -70,6 +73,7 @@ class HybridRetriever:
         """关键词检索。BM25 给全库每片打分，取 Top-K（只留得分>0 的）。"""
         scores = self.bm25.get_scores(tokenize(question))
         ranked = sorted(enumerate(scores), key=lambda x: -x[1])
+        ranked = [(idx, s) for idx, s in ranked if self.kinds[idx] != "log"]   # BM25 路同样过滤
         return [(idx, float(s)) for idx, s in ranked[:k] if s > 0]
 
     # ---------- 路 ③: RRF 融合 ----------

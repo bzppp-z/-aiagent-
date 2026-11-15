@@ -24,11 +24,14 @@ def load_documents_multi(root=".", config="corpus_sources.json"):
     import json
     docs, missing = [], []
     with open(os.path.join(root, config), encoding="utf-8") as f:
-        sources = json.load(f)["sources"]
+        cfg = json.load(f)
+    sources = cfg["sources"]
+    kinds = cfg.get("kinds", {})   # kind: course=课程知识 / log=学员日记（默认不参与检索）
 
     def add(path):
+        name = os.path.basename(path)
         with open(path, encoding="utf-8") as fp:
-            docs.append((os.path.basename(path), fp.read()))
+            docs.append((name, fp.read(), kinds.get(name, "course")))
 
     for d in sources.get("dirs", []):
         d = os.path.join(root, d)
@@ -148,7 +151,7 @@ def main():
         out_dir, tag, sizes = "index/chunks_fix", "chunk", (100, 300)
         os.makedirs(out_dir, exist_ok=True)
         print(f"[fix 模式] 固定长度+重叠切片 → {out_dir}/")
-        for name, text in docs:
+        for name, text, kind in docs:
             stem = os.path.splitext(name)[0]
             for size in sizes:
                 overlap = size // 5
@@ -156,7 +159,7 @@ def main():
                 out_path = os.path.join(out_dir, f"{stem}_{tag}{size}.json")
                 with open(out_path, "w", encoding="utf-8") as f:
                     json.dump(
-                        {"source": name, "chunk_size": size, "overlap": overlap, "chunks": chunks},
+                        {"source": name, "kind": kind, "chunk_size": size, "overlap": overlap, "chunks": chunks},
                         f, ensure_ascii=False, indent=2,
                     )
                 print(f"  {name} | chunk_size={size}, overlap={overlap} → {len(chunks)} 片")
@@ -164,14 +167,14 @@ def main():
         out_dir, max_chars, overlap = "index/chunks_struct", 500, 100
         os.makedirs(out_dir, exist_ok=True)
         print(f"[struct 模式] 剥元信息 + 按标题切 → {out_dir}/")
-        for name, text in docs:
+        for name, text, kind in docs:
             stem = os.path.splitext(name)[0]
             clean = strip_frontmatter(text)
             chunks = chunk_structured(clean, max_chars=max_chars, overlap=overlap)
             out_path = os.path.join(out_dir, f"{stem}_struct.json")
             with open(out_path, "w", encoding="utf-8") as f:
                 json.dump(
-                    {"source": name, "chunk_size": max_chars, "overlap": overlap, "chunks": chunks},
+                    {"source": name, "kind": kind, "chunk_size": max_chars, "overlap": overlap, "chunks": chunks},
                     f, ensure_ascii=False, indent=2,
                 )
             print(f"  {name} | {len(chunks)} 片 (对比 fix 模式 chunk300)")

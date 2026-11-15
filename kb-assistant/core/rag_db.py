@@ -48,7 +48,7 @@ def build_db():
         ids=[f"chunk_{i}" for i in range(len(meta))],
         embeddings=vectors.tolist(),
         documents=[m["text"] for m in meta],
-        metadatas=[{"source": m["source"]} for m in meta],
+        metadatas=[{"source": m["source"], "kind": m.get("kind", "course")} for m in meta],
     )
     print(f"[建库] {COLLECTION} 共 {collection.count()} 条（数据来自 {DATA_DIR}/）→ 落盘 chroma_db/")
 
