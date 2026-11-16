@@ -1,0 +1,17 @@
+{
+  "learner": "薄志朋",
+  "updated": "2026-11-16",
+  "current": {
+    "week": 5,
+    "day": 33,
+    "stage": "服务化上线（v0.5：FastAPI / SSE / 限流缓存 / 预算熔断 / locust 压测）",
+    "project_version": "v0.6 Agent 最小版已完成，v0.5 部署收尾中"
+  },
+  "completed": [
+    {"week": 1, "days": "0-7", "topic": "模型调用基本功（含迷你项目：智能客服）"},
+    {"week": 2, "days": "8-14", "topic": "RAG 第一条链路（切片/向量化/ChromaDB/组装）"},
+    {"week": 3, "days": "15-21", "topic": "RAG 优化（结构切分/混合检索/Rerank/查询改写）"},
+    {"week": 4, "days": "22-28", "topic": "评测闭环（Golden Set/Recall@5/LLM 裁判/错误分析）"}
+  ],
+  "next": "Day 34-35：Docker 容器化部署 + 第 5 周复盘；之后第 6 周 Agent 进阶（选修）"
+}

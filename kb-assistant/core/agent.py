@@ -61,6 +61,22 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "list_files",
+            "description": "列出知识库中的文档清单（文件名与切片数），用于回答「知识库有哪些资料 / 覆盖什么主题」这类问题",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_progress",
+            "description": "查询学员当前学习进度：第几周第几天、已完成阶段、下一步计划。用于回答「我学到哪了 / 接下来学什么」",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "calculator",
             "description": "计算四则运算表达式",
             "parameters": {
@@ -106,6 +122,36 @@ class CourseAgent:
         parts = [f"[{i}] ({src})\n{text[:300]}" for i, (src, text) in enumerate(hits, 1)]
         return "\n\n".join(parts) if parts else "（知识库没有检索到相关片段）"
 
+    def list_files(self) -> str:
+        """列知识库文档：按来源统计切片数（日志类文档单独说明，不参与检索）。"""
+        from collections import Counter
+        course, log = Counter(), Counter()
+        for m in self.hr.meta:
+            (log if m.get("kind") == "log" else course)[m["source"]] += 1
+        lines = [f"- {name}（{n} 片）" for name, n in sorted(course.items())]
+        text = f"知识库共 {len(course)} 篇文档、{sum(course.values())} 片切片：" + chr(10) + chr(10).join(lines)
+        if log:
+            text += f"{chr(10)}另有日志类文档 {len(log)} 篇（不参与检索）。"
+        return text
+
+    def get_progress(self) -> str:
+        """读 data/progress.json，返回当前进度摘要。"""
+        import json
+        path = os.path.join(os.path.dirname(CORE), "data", "progress.json")
+        try:
+            d = json.load(open(path, encoding="utf-8"))
+        except Exception as e:
+            return f"（读取进度失败：{e}）"
+        cur = d.get("current", {})
+        lines = [
+            f"当前：第 {cur.get('week')} 周 Day {cur.get('day')} —— {cur.get('stage')}",
+            "已完成：",
+        ]
+        for c in d.get("completed", []):
+            lines.append(f"- 第 {c['week']} 周（Day {c['days']}）：{c['topic']}")
+        lines.append(f"下一步：{d.get('next')}")
+        return chr(10).join(lines)
+
     def calculator(self, expression: str) -> str:
         try:
             return safe_eval(expression)
@@ -115,6 +161,10 @@ class CourseAgent:
     def dispatch(self, name: str, args: dict) -> str:
         if name == "search_kb":
             return self.search_kb(args.get("query", ""))
+        if name == "list_files":
+            return self.list_files()
+        if name == "get_progress":
+            return self.get_progress()
         if name == "calculator":
             return self.calculator(args.get("expression", ""))
         return f"未知工具：{name}"
