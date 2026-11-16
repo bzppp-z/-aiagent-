@@ -63,7 +63,7 @@ python core/rag_chat.py --live                  # 多轮会话（v0.3）
 | v0.3 | 多轮对话 + 查询改写（`rag_chat.py`，指代消解） | ✅ 2026-11-14 |
 | v0.4 | **评测闭环**：评测集 + Recall@5 + LLM 裁判 | ⏳ |
 | v0.5 | FastAPI 工作台 + SSE 流式 + 压测 | ⏳ |
-| v0.6 | Agent 工作台：ReAct 循环 + 工具调用（search_kb / calculator）+ Trace | ✅ 2026-11-16（最小版） |
+| v0.6 | Agent 工作台：ReAct 状态机（THINK/ACT）+ 工具调用 + Trace | ✅ 2026-11-16（最小版） |
 
 ## Bad Case 修复台账（节选）
 

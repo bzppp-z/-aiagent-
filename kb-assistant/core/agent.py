@@ -32,6 +32,8 @@ from chat import client
 MAX_STEPS = 5          # 循环上限：防止无限调用工具
 TOOL_PREVIEW = 80      # Trace 里工具结果预览长度
 
+STATE_THINK, STATE_ACT, STATE_DONE, STATE_LIMIT = "THINK", "ACT", "DONE", "LIMIT"
+
 SYSTEM = (
     "你是课程助教 Agent。你可以调用工具：\n"
     "- search_kb：检索课程知识库（回答课程内容、学习安排、项目问题时必须先调用它）\n"
@@ -117,55 +119,82 @@ class CourseAgent:
             return self.calculator(args.get("expression", ""))
         return f"未知工具：{name}"
 
-    # ---------- 主循环 ----------
+    # ---------- 状态机主循环 ----------
+    # 状态转移表：
+    #   THINK --(无工具调用)--> DONE
+    #   THINK --(有工具调用)--> ACT --(工具执行完)--> THINK
+    #   THINK --(步数耗尽)----> LIMIT
     def run(self, question: str, max_steps: int = MAX_STEPS):
-        messages = [
-            {"role": "system", "content": SYSTEM},
-            {"role": "user", "content": question},
-        ]
+        state = {
+            "node": STATE_THINK,
+            "step": 0,
+            "answer": None,
+            "messages": [
+                {"role": "system", "content": SYSTEM},
+                {"role": "user", "content": question},
+            ],
+        }
         trace = []
 
-        for step in range(1, max_steps + 1):
-            t0 = time.perf_counter()
-            resp = client.chat.completions.create(
-                model="deepseek-chat",
-                messages=messages,
-                tools=TOOLS,
-                temperature=0.1,
-                timeout=60,
-            )
-            msg = resp.choices[0].message
-            cost_ms = int((time.perf_counter() - t0) * 1000)
+        while state["node"] in (STATE_THINK, STATE_ACT):
+            if state["node"] == STATE_THINK:
+                if state["step"] >= max_steps:          # 转移：THINK -> LIMIT
+                    state["node"] = STATE_LIMIT
+                    break
+                state["step"] += 1
 
-            # 没有工具调用 → 最终回答
-            if not msg.tool_calls:
-                trace.append({"step": step, "type": "final", "cost_ms": cost_ms})
-                return msg.content or "（模型未返回内容）", trace, messages
+                t0 = time.perf_counter()
+                resp = client.chat.completions.create(
+                    model="deepseek-chat",
+                    messages=state["messages"],
+                    tools=TOOLS,
+                    temperature=0.1,
+                    timeout=60,
+                )
+                msg = resp.choices[0].message
+                cost_ms = int((time.perf_counter() - t0) * 1000)
 
-            # 有工具调用 → 逐个执行，结果回灌
-            calls = []
-            for tc in msg.tool_calls:
-                args = json.loads(tc.function.arguments or "{}")
-                t1 = time.perf_counter()
-                result = self.dispatch(tc.function.name, args)
-                tool_ms = int((time.perf_counter() - t1) * 1000)
-                trace.append({
-                    "step": step, "type": "tool",
-                    "name": tc.function.name, "args": args,
-                    "result_preview": result[:TOOL_PREVIEW].replace("\n", " "),
-                    "cost_ms": cost_ms, "tool_ms": tool_ms,
-                })
-                calls.append({
-                    "id": tc.id, "type": "function",
-                    "function": {"name": tc.function.name, "arguments": tc.function.arguments},
-                })
-                messages.append({
-                    "role": "tool", "tool_call_id": tc.id, "content": result,
-                })
-            messages.insert(-len(calls), {"role": "assistant", "content": msg.content, "tool_calls": calls})
+                if not msg.tool_calls:                  # 转移：THINK -> DONE
+                    state["node"] = STATE_DONE
+                    state["answer"] = msg.content or "（模型未返回内容）"
+                    trace.append({"step": state["step"], "type": "final", "cost_ms": cost_ms})
+                    break
 
-        trace.append({"step": max_steps, "type": "limit"})
-        return "（达到最大步数上限，未能完成）", trace, messages
+                state["pending_calls"] = msg                  # 转移：THINK -> ACT
+                state["node"] = STATE_ACT
+                state["llm_cost_ms"] = cost_ms
+                state["assistant_content"] = msg.content
+
+            elif state["node"] == STATE_ACT:
+                msg = state["pending_calls"]
+                calls = []
+                for tc in msg.tool_calls:
+                    args = json.loads(tc.function.arguments or "{}")
+                    t1 = time.perf_counter()
+                    result = self.dispatch(tc.function.name, args)
+                    tool_ms = int((time.perf_counter() - t1) * 1000)
+                    trace.append({
+                        "step": state["step"], "type": "tool",
+                        "name": tc.function.name, "args": args,
+                        "result_preview": result[:TOOL_PREVIEW].replace(chr(10), " "),
+                        "cost_ms": state["llm_cost_ms"], "tool_ms": tool_ms,
+                    })
+                    calls.append({
+                        "id": tc.id, "type": "function",
+                        "function": {"name": tc.function.name, "arguments": tc.function.arguments},
+                    })
+                    state["messages"].append({"role": "tool", "tool_call_id": tc.id, "content": result})
+                state["messages"].insert(
+                    -len(calls),
+                    {"role": "assistant", "content": state["assistant_content"], "tool_calls": calls},
+                )
+                state["node"] = STATE_THINK                 # 转移：ACT -> THINK
+
+        if state["node"] == STATE_LIMIT:
+            trace.append({"step": max_steps, "type": "limit"})
+            return "（达到最大步数上限，未能完成）", trace, state["messages"]
+
+        return state["answer"], trace, state["messages"]
 
 
 def show(question, answer, trace):
