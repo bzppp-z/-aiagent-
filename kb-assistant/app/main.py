@@ -11,7 +11,7 @@ import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse
 from sse_starlette.sse import EventSourceResponse
 from starlette.concurrency import iterate_in_threadpool
 
@@ -155,38 +155,10 @@ def stats():
     }
 
 
-INDEX_HTML = """<!doctype html>
-<html lang="zh"><meta charset="utf-8"><title>kb-assistant 课程助教</title>
-<style>
-body{font-family:system-ui;max-width:760px;margin:40px auto;padding:0 16px}
-#log{white-space:pre-wrap;background:#f7f7f7;padding:16px;border-radius:8px;min-height:120px;line-height:1.7}
-input{width:70%;padding:8px}button{padding:8px 16px}
-.src{color:#888;font-size:13px;margin-top:12px}
-</style>
-<h2>kb-assistant 课程助教</h2>
-<p><input id="q" placeholder="问点什么…比如：第六周学什么？" />
-<button onclick="ask()">提问</button></p>
-<div id="log"></div>
-<div class="src" id="src"></div>
-<script>
-function ask(){
-  const q=document.getElementById('q').value.trim(); if(!q) return;
-  const log=document.getElementById('log'); log.textContent='';
-  document.getElementById('src').textContent='';
-  const es=new EventSource('/api/chat/stream?question='+encodeURIComponent(q));
-  es.addEventListener('token', e=>{ log.textContent+=JSON.parse(e.data).t; });
-  es.addEventListener('sources', e=>{
-    const s=JSON.parse(e.data).map(x=>x.doc).filter((v,i,a)=>a.indexOf(v)===i);
-    document.getElementById('src').textContent='来源: '+s.join(', ');
-  });
-  es.addEventListener('done', ()=>es.close());
-  es.onerror=()=>es.close();
-}
-document.getElementById('q').addEventListener('keydown', e=>{ if(e.key==='Enter') ask(); });
-</script></html>"""
+STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/")
 def index():
-    """极简演示页：输入问题 → EventSource 接收流式回答（打字机效果）。"""
-    return INDEX_HTML
+    """产品级单页：多轮会话 + Markdown 渲染 + 来源卡片 + 流式打字。"""
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"), media_type="text/html")
