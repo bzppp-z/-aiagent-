@@ -16,3 +16,6 @@ chroma_db/
 
 # 评测报告（可再生成）
 eval/results/
+
+# 运行时日志（Agent Trace）
+logs/

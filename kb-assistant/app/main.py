@@ -5,6 +5,7 @@
   → 接口文档自动生成在 http://localhost:8000/docs
   → 测试: curl -X POST http://localhost:8000/api/chat -H "Content-Type: application/json" -d "{\"question\":\"第六周学什么\"}"
 """
+import datetime
 import json
 import os
 import time
@@ -159,6 +160,17 @@ def agent_endpoint(req: AgentRequest):
     finally:
         LIMITER.release()
 
+    # Trace 落盘（JSONL：一行一次请求，可 grep / 可统计）
+    os.makedirs(LOG_DIR, exist_ok=True)
+    record = {
+        "ts": datetime.datetime.now().isoformat(timespec="seconds"),
+        "question": req.question,
+        "steps": trace,
+        "answer": answer,
+    }
+    with open(os.path.join(LOG_DIR, "agent_trace.jsonl"), "a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + chr(10))
+
     steps = [s["step"] for s in trace]
     return AgentResponse(
         answer=answer,
@@ -178,6 +190,7 @@ def stats():
 
 
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
 
 
 @app.get("/")
