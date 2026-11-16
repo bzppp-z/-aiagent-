@@ -5,10 +5,14 @@
   → 接口文档自动生成在 http://localhost:8000/docs
   → 测试: curl -X POST http://localhost:8000/api/chat -H "Content-Type: application/json" -d "{\"question\":\"第六周学什么\"}"
 """
+import json
 import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
+from sse_starlette.sse import EventSourceResponse
+from starlette.concurrency import iterate_in_threadpool
 
 from app.schemas import ChatRequest, ChatResponse, Source, Usage
 from app.session import SessionStore
@@ -60,7 +64,68 @@ def chat_endpoint(req: ChatRequest):
     )
 
 
-# TODO(Day 29-30 下半场): 流式接口
-#   @app.get("/api/chat/stream")
-#   async def chat_stream(question: str, session_id: str | None = None):
-#       用 sse_starlette.EventSourceResponse，把 openai stream=True 的 chunk 逐帧 yield
+@app.get("/api/chat/stream")
+async def chat_stream(question: str, session_id: str | None = None):
+    """SSE 流式问答：event:token 逐字 → event:sources → event:usage → event:done
+
+    设计要点：
+    - 查询参数走 GET（EventSource 只能 GET），question 放 ?question=...；
+    - service.answer_stream 是同步阻塞生成器 → iterate_in_threadpool 逐块转异步，
+      绝不阻塞事件循环（概念 3 那个坑的解法）；
+    - 帧格式交给 sse-starlette，它负责 data:/event:/心跳。
+    """
+    if service is None:
+        raise HTTPException(503, "服务尚未就绪")
+    sid = session_id or sessions.new_id()
+
+    def gen():
+        parts = []
+        for kind, payload in service.answer_stream(question):
+            if kind == "token":
+                parts.append(payload)
+                yield {"event": "token", "data": json.dumps({"t": payload}, ensure_ascii=False)}
+            elif kind == "sources":
+                yield {"event": "sources", "data": json.dumps(payload, ensure_ascii=False)}
+            elif kind == "usage":
+                yield {"event": "usage", "data": json.dumps(payload)}
+        sessions.append(sid, question, "".join(parts))
+        yield {"event": "done", "data": json.dumps({"session_id": sid})}
+
+    return EventSourceResponse(iterate_in_threadpool(gen()))
+
+
+INDEX_HTML = """<!doctype html>
+<html lang="zh"><meta charset="utf-8"><title>kb-assistant 课程助教</title>
+<style>
+body{font-family:system-ui;max-width:760px;margin:40px auto;padding:0 16px}
+#log{white-space:pre-wrap;background:#f7f7f7;padding:16px;border-radius:8px;min-height:120px;line-height:1.7}
+input{width:70%;padding:8px}button{padding:8px 16px}
+.src{color:#888;font-size:13px;margin-top:12px}
+</style>
+<h2>kb-assistant 课程助教</h2>
+<p><input id="q" placeholder="问点什么…比如：第六周学什么？" />
+<button onclick="ask()">提问</button></p>
+<div id="log"></div>
+<div class="src" id="src"></div>
+<script>
+function ask(){
+  const q=document.getElementById('q').value.trim(); if(!q) return;
+  const log=document.getElementById('log'); log.textContent='';
+  document.getElementById('src').textContent='';
+  const es=new EventSource('/api/chat/stream?question='+encodeURIComponent(q));
+  es.addEventListener('token', e=>{ log.textContent+=JSON.parse(e.data).t; });
+  es.addEventListener('sources', e=>{
+    const s=JSON.parse(e.data).map(x=>x.doc).filter((v,i,a)=>a.indexOf(v)===i);
+    document.getElementById('src').textContent='来源: '+s.join(', ');
+  });
+  es.addEventListener('done', ()=>es.close());
+  es.onerror=()=>es.close();
+}
+document.getElementById('q').addEventListener('keydown', e=>{ if(e.key==='Enter') ask(); });
+</script></html>"""
+
+
+@app.get("/", response_class=HTMLResponse)
+def index():
+    """极简演示页：输入问题 → EventSource 接收流式回答（打字机效果）。"""
+    return INDEX_HTML

@@ -18,7 +18,7 @@ sys.path.insert(0, CORE)
 from sentence_transformers import SentenceTransformer, CrossEncoder
 from retrieval import HybridRetriever
 from rag import retrieve_reranked, build_messages, RERANKER
-from chat import chat
+from chat import chat, client   # client 是 chat.py 里的全局 OpenAI 客户端，流式要用
 from embed import MODEL_NAME
 
 
@@ -52,3 +52,37 @@ class RAGService:
 
         # ⑤ 返回（usage 的键是 in/out，与 chat.py 约定一致）
         return result["text"], sources, result["usage"]
+
+    def answer_stream(self, question: str):
+        """流式问答生成器：yield ("token", 文本) / ("sources", 列表) / ("usage", dict)。
+
+        与 answer() 共用同一套检索与 Prompt，差别只在出口：
+        把「等全部生成完一次性返回」换成「边生成边吐」。
+        """
+        hits, _fused = retrieve_reranked(question, self.model, self.cross, self.hr)
+        msgs = build_messages(question, hits)
+
+        # stream_options 让最后一帧带回 usage；个别网关不支持时降级重试一次
+        try:
+            stream = client.chat.completions.create(
+                model="deepseek-chat", messages=msgs, temperature=0.1,
+                stream=True, stream_options={"include_usage": True},
+            )
+        except Exception:
+            stream = client.chat.completions.create(
+                model="deepseek-chat", messages=msgs, temperature=0.1, stream=True,
+            )
+
+        parts, usage = [], {"in": 0, "out": 0}
+        for chunk in stream:
+            if chunk.choices:
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    parts.append(delta)
+                    yield "token", delta          # 逐字吐出（SSE 帧内容）
+            u = getattr(chunk, "usage", None)
+            if u:                                 # include_usage 生效时最后一帧带它
+                usage = {"in": u.prompt_tokens, "out": u.completion_tokens}
+
+        yield "sources", [{"doc": s, "snippet": t[:40].replace("\n", " ")} for s, t in hits]
+        yield "usage", usage
