@@ -6,6 +6,7 @@
   → 测试: curl -X POST http://localhost:8000/api/chat -H "Content-Type: application/json" -d "{\"question\":\"第六周学什么\"}"
 """
 import json
+import os
 import time
 from contextlib import asynccontextmanager
 
@@ -14,12 +15,18 @@ from fastapi.responses import HTMLResponse
 from sse_starlette.sse import EventSourceResponse
 from starlette.concurrency import iterate_in_threadpool
 
+from app.reliability import ConcurrencyLimiter, SimpleCache, TokenBudget
 from app.schemas import ChatRequest, ChatResponse, Source, Usage
 from app.session import SessionStore
 from app.service import RAGService
 
 sessions = SessionStore()
 service: RAGService | None = None
+
+# —— Day 31-32：可靠性 + 成本组件（进程级单例）——
+CACHE = SimpleCache(maxsize=128)                                    # 相同问题秒回
+LIMITER = ConcurrencyLimiter(int(os.environ.get("MAX_CONCURRENT", "4")))   # 并发闸门
+BUDGET = TokenBudget(int(os.environ.get("DAILY_TOKEN_BUDGET", "200000")))  # 日预算
 
 
 @asynccontextmanager
@@ -41,20 +48,39 @@ def health():
 
 @app.post("/api/chat", response_model=ChatResponse)
 def chat_endpoint(req: ChatRequest):
-    """非流式问答：POST {question, session_id?} → {answer, sources, usage, session_id, latency_ms}"""
+    """非流式问答 —— 三道关：预算熔断 → 缓存命中 → 并发闸门。"""
     if service is None:
         raise HTTPException(503, "服务尚未就绪")
+    if not BUDGET.check():                                  # 关 ①：日预算熔断
+        raise HTTPException(429, "今日 Token 预算已耗尽，请明天再试")
 
     t0 = time.perf_counter()
     sid = req.session_id or sessions.new_id()
 
-    # ① 调服务层：检索 + 拼 Prompt + 生成（耗时主体；def 路由由 FastAPI 丢线程池）
-    answer_text, sources, usage = service.answer(req.question)
+    hit = CACHE.get(req.question)                           # 关 ②：缓存命中秒回
+    if hit:
+        answer_text, sources, usage = hit
+        sessions.append(sid, req.question, answer_text)
+        return ChatResponse(
+            answer=answer_text,
+            sources=[Source(**s) for s in sources],
+            usage=Usage(input_tokens=usage["in"], output_tokens=usage["out"]),
+            session_id=sid,
+            latency_ms=int((time.perf_counter() - t0) * 1000),
+            cached=True,
+        )
 
-    # ② 写会话：同一 session_id 延续对话（供前端气泡展示 / 将来接查询改写）
+    if not LIMITER.try_acquire():                           # 关 ③：并发满了立即 429
+        raise HTTPException(429, "服务繁忙（并发已满），请稍后重试")
+    try:
+        answer_text, sources, usage = service.answer(req.question)
+    finally:
+        LIMITER.release()
+
+    BUDGET.add(usage)                                       # 记账 + 回填缓存
+    CACHE.set(req.question, (answer_text, sources, usage))
     sessions.append(sid, req.question, answer_text)
 
-    # ③ 组装响应——Pydantic 模型兜住出参形状，字段缺漏会在返回时立刻报错
     return ChatResponse(
         answer=answer_text,
         sources=[Source(**s) for s in sources],
@@ -76,22 +102,57 @@ async def chat_stream(question: str, session_id: str | None = None):
     """
     if service is None:
         raise HTTPException(503, "服务尚未就绪")
+    if not BUDGET.check():
+        raise HTTPException(429, "今日 Token 预算已耗尽，请明天再试")
     sid = session_id or sessions.new_id()
 
+    hit = CACHE.get(question)                               # 缓存命中：全文一帧吐出，前端无感
+    if hit:
+        answer_text, hit_sources, usage = hit
+        sessions.append(sid, question, answer_text)
+
+        async def cached_gen():
+            yield {"event": "token", "data": json.dumps({"t": answer_text}, ensure_ascii=False)}
+            yield {"event": "sources", "data": json.dumps(hit_sources, ensure_ascii=False)}
+            yield {"event": "usage", "data": json.dumps(usage)}
+            yield {"event": "done", "data": json.dumps({"session_id": sid})}
+
+        return EventSourceResponse(cached_gen())
+
+    if not LIMITER.try_acquire():
+        raise HTTPException(429, "服务繁忙（并发已满），请稍后重试")
+
     def gen():
-        parts = []
-        for kind, payload in service.answer_stream(question):
-            if kind == "token":
-                parts.append(payload)
-                yield {"event": "token", "data": json.dumps({"t": payload}, ensure_ascii=False)}
-            elif kind == "sources":
-                yield {"event": "sources", "data": json.dumps(payload, ensure_ascii=False)}
-            elif kind == "usage":
-                yield {"event": "usage", "data": json.dumps(payload)}
-        sessions.append(sid, question, "".join(parts))
-        yield {"event": "done", "data": json.dumps({"session_id": sid})}
+        parts, srcs, usage = [], [], {"in": 0, "out": 0}
+        try:
+            for kind, payload in service.answer_stream(question):
+                if kind == "token":
+                    parts.append(payload)
+                    yield {"event": "token", "data": json.dumps({"t": payload}, ensure_ascii=False)}
+                elif kind == "sources":
+                    srcs = payload
+                    yield {"event": "sources", "data": json.dumps(payload, ensure_ascii=False)}
+                elif kind == "usage":
+                    usage = payload
+                    yield {"event": "usage", "data": json.dumps(payload)}
+            BUDGET.add(usage)
+            CACHE.set(question, ("".join(parts), srcs, usage))
+            sessions.append(sid, question, "".join(parts))
+            yield {"event": "done", "data": json.dumps({"session_id": sid})}
+        finally:
+            LIMITER.release()                               # 无论正常结束还是客户端断开都释放名额
 
     return EventSourceResponse(iterate_in_threadpool(gen()))
+
+
+@app.get("/api/stats")
+def stats():
+    """运维看板：预算账单 / 缓存命中 / 并发拒绝数。"""
+    return {
+        "budget": BUDGET.stats(),
+        "cache": {"hits": CACHE.hits, "misses": CACHE.misses, "maxsize": CACHE.maxsize},
+        "limiter": {"limit": LIMITER.limit, "rejected": LIMITER.rejected},
+    }
 
 
 INDEX_HTML = """<!doctype html>

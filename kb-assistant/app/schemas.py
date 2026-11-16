@@ -26,3 +26,4 @@ class ChatResponse(BaseModel):
     usage: Usage
     session_id: str
     latency_ms: int
+    cached: bool = False   # 命中缓存的回答（相同问题秒回）
