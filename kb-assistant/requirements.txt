@@ -5,3 +5,6 @@ sentence-transformers
 numpy
 rank_bm25
 jieba
+fastapi
+uvicorn
+sse-starlette

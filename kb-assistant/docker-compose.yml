@@ -1,0 +1,22 @@
+services:
+  kb:
+    build: .
+    image: kb-assistant:0.6
+    container_name: kb-assistant
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env                      # DEEPSEEK_API_KEY
+    environment:
+      HF_HUB_OFFLINE: "1"
+      DAILY_TOKEN_BUDGET: "200000"
+      MAX_CONCURRENT: "4"
+    volumes:
+      # 模型缓存（只读）：避免镜像膨胀，也避免容器内重新下载
+      - C:/Users/bzp20/.cache/huggingface:/root/.cache/huggingface:ro
+      # 知识库产物（向量库 + 切片）：本机构建、容器挂载使用
+      - ./chroma_db:/app/chroma_db
+      - ./index:/app/index
+      # Agent Trace 日志写到宿主机
+      - ./logs:/app/logs
+    restart: unless-stopped

@@ -1,0 +1,14 @@
+# 构建上下文排除（镜像里只放代码）
+.venv
+.env
+index
+chroma_db
+logs
+__pycache__
+*.pyc
+.git
+docs
+eval/results
+loadtest
+tests
+/*.md

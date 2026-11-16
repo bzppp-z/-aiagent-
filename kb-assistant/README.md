@@ -45,6 +45,54 @@ python core/rag.py                              # 默认验收三问
 python core/rag_chat.py --live                  # 多轮会话（v0.3）
 ```
 
+## 容器化部署
+
+> 模型缓存、向量库、切片产物不打进镜像，运行时挂载——镜像只有代码和依赖。
+
+```bash
+# 构建（首次约 5-10 分钟，torch 体积大）
+docker build -t kb-assistant:0.6 .
+
+# 运行（挂载模型缓存 + 知识库产物 + .env）
+docker run -d --name kb-assistant -p 8000:8000   --env-file .env   -e HF_HUB_OFFLINE=1   -v "$HOME/.cache/huggingface:/root/.cache/huggingface:ro"   -v "$(pwd)/chroma_db:/app/chroma_db"   -v "$(pwd)/index:/app/index"   -v "$(pwd)/logs:/app/logs"   kb-assistant:0.6
+
+# 或一键
+docker compose up -d --build
+```
+
+启动后访问 http://localhost:8000/ （网页）或 /docs （接口文档）。
+注意：知识库（chroma_db / index）需先在宿主机建好（见「快速开始」的建库三步）。
+
+### 实机验证记录（Windows + Docker Desktop）
+
+镜像 kb-assistant:0.6，10.1GB（torch 占大头），启动约 60 秒（加载本地模型）。
+
+```bash
+# 1) 拉不到 Docker Hub 时：用国内镜像站拉基础镜像并打标签
+docker pull docker.1ms.run/library/python:3.11-slim
+docker tag docker.1ms.run/library/python:3.11-slim python:3.11-slim
+
+# 2) 构建
+docker build -t kb-assistant:0.6 .
+
+# 3) 运行（挂载路径用 Windows 风格 C:/ 前缀）
+docker run -d --name kb-assistant -p 8000:8000 \
+  --env-file .env -e HF_HUB_OFFLINE=1 \
+  -v "C:/Users/bzp20/.cache/huggingface:/root/.cache/huggingface:ro" \
+  -v "C:/Users/bzp20/Desktop/ai学习/my-ai-projects/kb-assistant/chroma_db:/app/chroma_db" \
+  -v "C:/Users/bzp20/Desktop/ai学习/my-ai-projects/kb-assistant/index:/app/index" \
+  -v "C:/Users/bzp20/Desktop/ai学习/my-ai-projects/kb-assistant/logs:/app/logs" \
+  kb-assistant:0.6
+
+curl http://localhost:8000/health   # status ok / model_ready true
+```
+
+**四个实战坑**（都踩过并修复）：
+1. requirements.txt 漏了 fastapi/uvicorn/sse-starlette——本地 venv 手动装过所以没暴露，容器从零安装立刻报 ModuleNotFoundError；
+2. Docker Hub 域名解析失败（lookup auth.docker.io: no such host）——用 docker.1ms.run 镜像站拉基础镜像再 tag；
+3. 挂载路径写成 /c/... 会变成空目录——必须用 Windows 风格 C:/...；
+4. docker exec ... ls /app/... 被 Git Bash 路径转换劫持——加 MSYS_NO_PATHCONV=1。
+
 ## 语料
 
 知识来源由 `corpus_sources.json` 配置化接入：
