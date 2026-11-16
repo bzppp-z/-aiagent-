@@ -1,6 +1,6 @@
-# kb-assistant — 课程助教
+# kb-assistant — 带评测闭环的企业知识库 RAG + Agent 工作台
 
-> 一个带评测闭环的知识库 RAG 项目：把六周 LLM/RAG 课程学到的技术装进一个自己天天用的助手。
+> 带评测闭环的企业知识库 RAG + Agent 工作台：文档入库、混合检索、精排、带引用生成，外加 Agent 模式（模型自主调用工具）与量化评测。
 > **边做项目边学**——每个新学的能力作为一个组件装入，并用评测数据验证它有没有用。
 
 ## 它能做什么
@@ -63,7 +63,7 @@ python core/rag_chat.py --live                  # 多轮会话（v0.3）
 | v0.3 | 多轮对话 + 查询改写（`rag_chat.py`，指代消解） | ✅ 2026-11-14 |
 | v0.4 | **评测闭环**：评测集 + Recall@5 + LLM 裁判 | ⏳ |
 | v0.5 | FastAPI 工作台 + SSE 流式 + 压测 | ⏳ |
-| v0.6 | Agent 化：查进度工具 + ReAct 循环 | ⏳ |
+| v0.6 | Agent 工作台：ReAct 循环 + 工具调用（search_kb / calculator）+ Trace | ✅ 2026-11-16（最小版） |
 
 ## Bad Case 修复台账（节选）
 

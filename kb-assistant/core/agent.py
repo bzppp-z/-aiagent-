@@ -92,10 +92,11 @@ def safe_eval(expr: str) -> str:
 
 
 class CourseAgent:
-    def __init__(self):
-        self.model = SentenceTransformer(MODEL_NAME)
-        self.cross = CrossEncoder(RERANKER, max_length=512)
-        self.hr = HybridRetriever(self.model)
+    def __init__(self, model=None, cross=None, hr=None):
+        # 服务层可传入已加载的模型复用，避免重复占内存
+        self.model = model or SentenceTransformer(MODEL_NAME)
+        self.cross = cross or CrossEncoder(RERANKER, max_length=512)
+        self.hr = hr or HybridRetriever(self.model)
 
     # ---------- 工具实现 ----------
     def search_kb(self, query: str, k: int = 3) -> str:

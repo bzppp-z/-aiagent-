@@ -29,6 +29,8 @@ class RAGService:
         self.model = SentenceTransformer(MODEL_NAME)
         self.cross = CrossEncoder(RERANKER, max_length=512)
         self.hr = HybridRetriever(self.model)
+        from agent import CourseAgent          # 复用同一套模型与检索器
+        self.agent = CourseAgent(self.model, self.cross, self.hr)
 
     def answer(self, question: str):
         """一次完整问答。返回 (answer_text, sources, usage_dict)。

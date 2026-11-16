@@ -16,7 +16,7 @@ from sse_starlette.sse import EventSourceResponse
 from starlette.concurrency import iterate_in_threadpool
 
 from app.reliability import ConcurrencyLimiter, SimpleCache, TokenBudget
-from app.schemas import ChatRequest, ChatResponse, Source, Usage
+from app.schemas import AgentRequest, AgentResponse, AgentStep, ChatRequest, ChatResponse, Source, Usage
 from app.session import SessionStore
 from app.service import RAGService
 
@@ -143,6 +143,28 @@ async def chat_stream(question: str, session_id: str | None = None):
             LIMITER.release()                               # 无论正常结束还是客户端断开都释放名额
 
     return EventSourceResponse(iterate_in_threadpool(gen()))
+
+
+@app.post("/api/agent", response_model=AgentResponse)
+def agent_endpoint(req: AgentRequest):
+    """Agent 工作台：模型自己决定调用哪些工具（知识库检索 / 计算器），返回答案 + 执行 Trace。"""
+    if service is None:
+        raise HTTPException(503, "服务尚未就绪")
+    if not BUDGET.check():
+        raise HTTPException(429, "今日 Token 预算已耗尽，请明天再试")
+    if not LIMITER.try_acquire():
+        raise HTTPException(429, "服务繁忙（并发已满），请稍后重试")
+    try:
+        answer, trace, _messages = service.agent.run(req.question)
+    finally:
+        LIMITER.release()
+
+    steps = [s["step"] for s in trace]
+    return AgentResponse(
+        answer=answer,
+        trace=[AgentStep(**s) for s in trace],
+        steps=max(steps) if steps else 0,
+    )
 
 
 @app.get("/api/stats")

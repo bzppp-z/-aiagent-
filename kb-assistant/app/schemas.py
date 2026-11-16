@@ -27,3 +27,23 @@ class ChatResponse(BaseModel):
     session_id: str
     latency_ms: int
     cached: bool = False   # 命中缓存的回答（相同问题秒回）
+
+
+class AgentRequest(BaseModel):
+    question: str = Field(..., min_length=1, description="用户问题（Agent 自行决定调用哪些工具）")
+
+
+class AgentStep(BaseModel):
+    step: int
+    type: str                 # tool / final / limit
+    name: str | None = None   # 工具名
+    args: dict | None = None  # 工具参数
+    result_preview: str | None = None
+    cost_ms: int | None = None
+    tool_ms: int | None = None
+
+
+class AgentResponse(BaseModel):
+    answer: str
+    trace: list[AgentStep]
+    steps: int
