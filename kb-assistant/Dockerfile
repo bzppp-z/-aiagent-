@@ -19,6 +19,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 
 # 依赖层（利用缓存：只有 requirements 变化才重装）
 COPY requirements.txt .
+# 先装 CPU 版 torch（避免 PyPI 默认 CUDA 版的 ~5GB 冗余，embedding 本来就在 CPU 跑）
+RUN pip install torch --index-url https://download.pytorch.org/whl/cpu
 RUN pip install -r requirements.txt -i ${PIP_INDEX}
 
 # 代码层

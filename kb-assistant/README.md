@@ -50,7 +50,7 @@ python core/rag_chat.py --live                  # 多轮会话（v0.3）
 > 模型缓存、向量库、切片产物不打进镜像，运行时挂载——镜像只有代码和依赖。
 
 ```bash
-# 构建（首次约 5-10 分钟，torch 体积大）
+# 构建（首次约 10-15 分钟；Dockerfile 先装 CPU 版 torch，避免 PyPI 默认拉下 ~5GB CUDA 全家桶）
 docker build -t kb-assistant:0.6 .
 
 # 运行（挂载模型缓存 + 知识库产物 + .env）
@@ -63,9 +63,9 @@ docker compose up -d --build
 启动后访问 http://localhost:8000/ （网页）或 /docs （接口文档）。
 注意：知识库（chroma_db / index）需先在宿主机建好（见「快速开始」的建库三步）。
 
-### 实机验证记录（Windows + Docker Desktop）
+### 实机验证记录（Windows 本机 + 阿里云 ECS）
 
-镜像 kb-assistant:0.6，10.1GB（torch 占大头），启动约 60 秒（加载本地模型）。
+镜像 kb-assistant:0.6，**2.66GB**——Dockerfile 先装 CPU 版 torch 占位，pip 跳过 CUDA 版（省去 nvidia 库 3GB + triton 1GB 的纯冗余，首次构建 10.1GB→2.66GB）。启动约 60 秒（加载本地模型）。
 
 ```bash
 # 1) 拉不到 Docker Hub 时：用国内镜像站拉基础镜像并打标签
@@ -87,11 +87,21 @@ docker run -d --name kb-assistant -p 8000:8000 \
 curl http://localhost:8000/health   # status ok / model_ready true
 ```
 
-**四个实战坑**（都踩过并修复）：
+**六个实战坑**（都踩过并修复）：
 1. requirements.txt 漏了 fastapi/uvicorn/sse-starlette——本地 venv 手动装过所以没暴露，容器从零安装立刻报 ModuleNotFoundError；
 2. Docker Hub 域名解析失败（lookup auth.docker.io: no such host）——用 docker.1ms.run 镜像站拉基础镜像再 tag；
 3. 挂载路径写成 /c/... 会变成空目录——必须用 Windows 风格 C:/...；
-4. docker exec ... ls /app/... 被 Git Bash 路径转换劫持——加 MSYS_NO_PATHCONV=1。
+4. docker exec ... ls /app/... 被 Git Bash 路径转换劫持——加 MSYS_NO_PATHCONV=1；
+5. PyPI 默认 torch 是 GPU 完整版——sentence-transformers 会连带拉下 ~5GB CUDA 依赖，必须在装 requirements **之前**用 `pip install torch --index-url https://download.pytorch.org/whl/cpu` 先占位（pip 见 torch 已满足就跳过）；
+6. 阿里云机房直连 huggingface.co 不通——模型先用 `HF_ENDPOINT=https://hf-mirror.com` 下载进挂载目录，容器保持 HF_HUB_OFFLINE=1 离线运行。
+
+### 阿里云 ECS 部署记录
+
+配置：2 vCPU / 2GiB（+2G swap）/ 40G 盘，Ubuntu 22.04。
+
+- 镜像分发不走仓库：`docker save | gzip` 导出 539MB，scp 上服务器 `docker load`（自动还原 2.66GB）
+- 模型：hf-mirror 下载进 `/opt/kb/hf-cache` 挂载（注意 git clone 下来的模型目录结构与 HF cache 不兼容，不能直接用）
+- 实测：`/health` ok、model_ready true；真实问答全链路（改写→检索→精排→生成）18.3s——瓶颈在 2 核 CPU 跑 Cross-Encoder 精排（约 6-9s），与压测结论一致；规模化后迁 GPU（见 docs/容量报告.md 的 ROI 排序）
 
 ## 语料
 
@@ -106,12 +116,13 @@ curl http://localhost:8000/health   # status ok / model_ready true
 
 | 版本 | 内容 | 状态 |
 |---|---|---|
-| v0.1 | 地基迁移 + 多源语料入库 + CLI 问答带引用/拒答 | 🚧 进行中 |
+| v0.1 | 地基迁移 + 多源语料入库 + CLI 问答带引用/拒答 | ✅ 2026-11-14 |
 | v0.2 | 混合宽召回 top-20 + Rerank 精排（已接入 rag.py 主链路，RAG_K 可调） | ✅ 2026-11-14 |
 | v0.3 | 多轮对话 + 查询改写（`rag_chat.py`，指代消解） | ✅ 2026-11-14 |
-| v0.4 | **评测闭环**：评测集 + Recall@5 + LLM 裁判 | ⏳ |
-| v0.5 | FastAPI 工作台 + SSE 流式 + 压测 | ⏳ |
-| v0.6 | Agent 工作台：ReAct 状态机（THINK/ACT）+ 工具调用 + Trace | ✅ 2026-11-16（最小版） |
+| v0.4 | **评测闭环**：评测集 + Recall@5 + LLM 裁判 | ✅ 2026-11-15 |
+| v0.5 | FastAPI 工作台 + SSE 流式 + 压测 | ✅ 2026-11-16 |
+| v0.6 | Agent 工作台：ReAct 状态机（THINK/ACT）+ 工具调用 + Trace | ✅ 2026-11-16 |
+| 部署 | Docker 容器化（镜像瘦身 10.1GB→2.66GB）+ 阿里云 ECS 上线 | ✅ 2026-11-17 |
 
 ## Bad Case 修复台账（节选）
 
